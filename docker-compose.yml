@@ -1,0 +1,104 @@
+services:
+  # User Service
+  user-service:
+    build: ./services/user-service
+    ports:
+      - "3001:3000"
+    environment:
+      - SERVICE_NAME=user-service
+      - PORT=3000
+    networks:
+      - observability-net
+
+  # Order Service
+  order-service:
+    build: ./services/order-service
+    ports:
+      - "3002:3000"
+    environment:
+      - SERVICE_NAME=order-service
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3000
+    depends_on:
+      - user-service
+    networks:
+      - observability-net
+
+  # Inventory Service
+  inventory-service:
+    build: ./services/inventory-service
+    ports:
+      - "3003:3000"
+    environment:
+      - SERVICE_NAME=inventory-service
+      - PORT=3000
+    networks:
+      - observability-net
+
+  # API Gateway
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - SERVICE_NAME=api-gateway
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3000
+      - ORDER_SERVICE_URL=http://order-service:3000
+      - INVENTORY_SERVICE_URL=http://inventory-service:3000
+    depends_on:
+      - user-service
+      - order-service
+      - inventory-service
+    networks:
+      - observability-net
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - observability-net
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3004:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - observability-net
+
+  # Node Exporter
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - observability-net
+
+networks:
+  observability-net:
+    driver: bridge

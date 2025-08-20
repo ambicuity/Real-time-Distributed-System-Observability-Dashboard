@@ -1,0 +1,20 @@
+{
+  "name": "order-service",
+  "version": "1.0.0",
+  "description": "Order service for distributed system observability",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^14.2.0",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0",
+    "axios": "^1.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

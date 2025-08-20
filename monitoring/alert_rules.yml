@@ -1,0 +1,108 @@
+groups:
+  - name: service_health
+    rules:
+      # Service Down Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 30 seconds"
+
+      # High HTTP Error Rate
+      - alert: HighHTTPErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate on {{ $labels.job }}"
+          description: "HTTP error rate is {{ $value }} errors per second on {{ $labels.job }}"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on {{ $labels.job }}"
+          description: "95th percentile response time is {{ $value }}s on {{ $labels.job }}"
+
+      # Low Stock Alert
+      - alert: LowStock
+        expr: inventory_stock_level < 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low stock for {{ $labels.item_name }}"
+          description: "Stock level for {{ $labels.item_name }} is {{ $value }} units"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}%"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+  - name: business_metrics
+    rules:
+      # Order Processing Rate
+      - record: order_processing_rate
+        expr: rate(order_operations_total{operation="create"}[5m])
+
+      # User Registration Rate
+      - record: user_registration_rate
+        expr: rate(user_operations_total{operation="create"}[5m])
+
+      # Inventory Turnover Rate
+      - record: inventory_movement_rate
+        expr: rate(inventory_stock_movements_total[5m])
+
+      # Service Error Ratio
+      - record: service_error_ratio
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])
+
+      # Gateway Success Rate
+      - record: gateway_success_rate
+        expr: rate(gateway_operations_total{status="success"}[5m]) / rate(gateway_operations_total[5m])
+
+  - name: sla_alerts
+    rules:
+      # SLA Breach - Service Availability
+      - alert: SLAAvailabilityBreach
+        expr: avg_over_time(up[24h]) < 0.99
+        for: 1m
+        labels:
+          severity: critical
+          sla: availability
+        annotations:
+          summary: "SLA breach: Service availability below 99%"
+          description: "Service {{ $labels.job }} availability is {{ $value | humanizePercentage }} in the last 24h"
+
+      # SLA Breach - Response Time
+      - alert: SLAResponseTimeBreach
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1h])) > 1
+        for: 5m
+        labels:
+          severity: critical
+          sla: response_time
+        annotations:
+          summary: "SLA breach: 95th percentile response time above 1s"
+          description: "Service {{ $labels.job }} 95th percentile response time is {{ $value }}s"
